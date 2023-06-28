@@ -160,7 +160,7 @@ def sample_and_test(args):
     data_loader = torch.utils.data.DataLoader(dataset,
                                                batch_size=1,
                                                shuffle=False,
-                                               num_workers=4)
+                                               num_workers=2)
     #Initializing and loading network
     gen_diffusive_1 = NCSNpp(args).to(device)
     gen_diffusive_2 = NCSNpp(args).to(device)
@@ -339,6 +339,21 @@ if __name__ == '__main__':
     parser.add_argument('--source', type=str, default='T2',
                         help='source contrast')   
     args = parser.parse_args()
+    args.image_size = 256
+    args.exp='origin'
+    args.num_channels = 2
+    args.num_channels_dae = 64
+    args.ch_mult = (1,1, 2, 2, 4,4)
+    args.num_timesteps=4
+    args.num_res_blocks=2
+    args.embedding_type='positional'
+    args.z_emb_dim=256
+    args.contrast1='T1'
+    args.contrast2='T2'
+    args.which_epoch=50
+    args.gpu_chose=0
+    args.input_path = r'C:\Users\56991\Projects\SynDiff\SynDiff_sample_data'
+    args.output_path = r'C:\Users\56991\Projects\SynDiff\output'
     
     sample_and_test(args)
     

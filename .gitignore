@@ -2,3 +2,5 @@
 *pycache*
 saved_info/*
 saved_info
+ckpt/*
+output/*
