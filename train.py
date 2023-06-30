@@ -14,7 +14,7 @@ import torchvision
 
 import torchvision.transforms as transforms
 from dataset import CreateDatasetSynthesis
-
+from my_dataset import myslicesloader,mydataloader
 from torch.multiprocessing import Process
 import torch.distributed as dist
 import shutil
@@ -204,8 +204,23 @@ def train_syndiff(rank, gpu, args):
     batch_size = args.batch_size
     
     nz = args.nz #latent dimension
-    
 
+    dataset_path=args.input_path
+    train_loader,val_loader,\
+    train_transforms_list,train_transforms,\
+    all_slices_train,all_slices_val,\
+    shape_list_train,shape_list_val = mydataloader(data_pelvis_path=dataset_path,
+                                                train_number=2,
+                                                val_number=1,
+                                                batch_size=8,
+                                                val_batch_size=1,
+                                                saved_name_train='./train_ds_2d.csv',
+                                                saved_name_val='./val_ds_2d.csv',
+                                                resized_size=(256,256))
+    data_loader=train_loader
+    data_loader_val=val_loader
+    
+    '''
     dataset = CreateDatasetSynthesis(phase = "train", input_path = args.input_path, contrast1 = args.contrast1, contrast2 = args.contrast2)
     dataset_val = CreateDatasetSynthesis(phase = "val", input_path = args.input_path, contrast1 = args.contrast1, contrast2 = args.contrast2 )
 
@@ -231,7 +246,9 @@ def train_syndiff(rank, gpu, args):
                                                pin_memory=True,
                                                sampler=val_sampler,
                                                drop_last = True)
+    '''
 
+    
     val_l1_loss=np.zeros([2,args.num_epoch,len(data_loader_val)])
     val_psnr_values=np.zeros([2,args.num_epoch,len(data_loader_val)])
     print('train data size:'+str(len(data_loader)))
@@ -367,9 +384,11 @@ def train_syndiff(rank, gpu, args):
     
     
     for epoch in range(init_epoch, args.num_epoch+1):
-        train_sampler.set_epoch(epoch)
+        #train_sampler.set_epoch(epoch)
        
-        for iteration, (x1, x2) in enumerate(data_loader):
+        for iteration, data in enumerate(data_loader):
+            x1= data["image"]
+            x2= data["label"]
             for p in disc_diffusive_1.parameters():  
                 p.requires_grad = True  
             for p in disc_diffusive_2.parameters():  
@@ -720,7 +739,7 @@ def init_processes(rank, size, fn, args):
     os.environ['MASTER_PORT'] = args.port_num
     torch.cuda.set_device(args.local_rank)
     gpu = args.local_rank
-    dist.init_process_group(backend='nccl', init_method='env://', rank=rank, world_size=size)
+    dist.init_process_group(backend='gloo', init_method='env://', rank=rank, world_size=size) # nccl or gloo
     fn(rank, gpu, args)
     dist.barrier()
     cleanup()  
@@ -841,6 +860,32 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.world_size = args.num_proc_node * args.num_process_per_node
     size = args.num_process_per_node
+
+    args.image_size=256 
+    args.exp='exp_syndiff' 
+    args.num_channels=2 
+    args.num_channels_dae=64 
+    args.ch_mult=(1,1, 2, 2, 4,4)
+    args.num_timesteps=4 
+    args.num_res_blocks=2 
+    args.batch_size=1 
+    args.contrast1='T1' 
+    args.contrast2='T2' 
+    args.num_epoch=500 
+    args.ngf=64 
+    args.embedding_type='positional'  
+    args.ema_decay=0.999 
+    args.r1_gamma=1. 
+    args.z_emb_dim=256 
+    args.lr_d=1e-4 
+    args.lr_g=1.6e-4 
+    args.lazy_reg=10 
+    args.num_process_per_node=1 
+    args.local_rank=0 
+    args.input_path=r'C:\Users\56991\Projects\Datasets\Task1\pelvis'
+    args.output_path=r'C:\Users\56991\Projects\SynDiff\output'
+
+
 
     if size > 1:
         processes = []
