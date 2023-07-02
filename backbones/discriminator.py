@@ -219,12 +219,12 @@ class Discriminator_large(nn.Module):
    
     
     out = self.conv6(h,t_embed)
-    
+    #print(f'out shape: {out.shape}')
     batch, channel, height, width = out.shape
     group = min(batch, self.stddev_group)
     stddev = out.view(
             group, -1, self.stddev_feat, channel // self.stddev_feat, height, width
-        )
+        ) # [4, -1, 1, 64, 4, 4]
     stddev = torch.sqrt(stddev.var(0, unbiased=False) + 1e-8)
     stddev = stddev.mean([2, 3, 4], keepdims=True).squeeze(2)
     stddev = stddev.repeat(group, 1, height, width)

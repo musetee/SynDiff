@@ -259,9 +259,8 @@ def train_syndiff(rank, gpu, args):
     gen_diffusive_1 = NCSNpp(args).to(device)
     gen_diffusive_2 = NCSNpp(args).to(device)  
     #networks performing translation
-    args.num_channels=1
-    gen_non_diffusive_1to2 = backbones.generator_resnet.define_G(netG='resnet_6blocks',gpu_ids=[gpu])
-    gen_non_diffusive_2to1 = backbones.generator_resnet.define_G(netG='resnet_6blocks',gpu_ids=[gpu])
+    gen_non_diffusive_1to2 = backbones.generator_resnet.define_G(netG='unet_128',gpu_ids=[gpu])
+    gen_non_diffusive_2to1 = backbones.generator_resnet.define_G(netG='unet_128',gpu_ids=[gpu])
     
     disc_diffusive_1 = Discriminator_large(nc = 2, ngf = args.ngf, 
                                    t_emb_dim = args.t_emb_dim,
@@ -269,10 +268,20 @@ def train_syndiff(rank, gpu, args):
     disc_diffusive_2 = Discriminator_large(nc = 2, ngf = args.ngf, 
                                    t_emb_dim = args.t_emb_dim,
                                    act=nn.LeakyReLU(0.2)).to(device)
-    
+
     disc_non_diffusive_cycle1 = backbones.generator_resnet.define_D(gpu_ids=[gpu])
     disc_non_diffusive_cycle2 = backbones.generator_resnet.define_D(gpu_ids=[gpu])
     
+    # print parameter number
+    print('Number of parameters: gen_diffusive_1', sum([p.data.nelement() for p in gen_diffusive_1.parameters()]))
+    print('Number of parameters: gen_diffusive_2', sum([p.data.nelement() for p in gen_diffusive_2.parameters()]))#
+    print('Number of parameters: gen_non_diffusive_1to2', sum([p.data.nelement() for p in gen_non_diffusive_1to2.parameters()]))
+    print('Number of parameters: gen_non_diffusive_2to1', sum([p.data.nelement() for p in gen_non_diffusive_2to1.parameters()]))
+    print('Number of parameters: disc_diffusive_1', sum([p.data.nelement() for p in disc_diffusive_1.parameters()]))   
+    print('Number of parameters: disc_diffusive_2', sum([p.data.nelement() for p in disc_diffusive_2.parameters()]))
+    print('Number of parameters: disc_non_diffusive_cycle1', sum([p.data.nelement() for p in disc_non_diffusive_cycle1.parameters()]))
+    print('Number of parameters: disc_non_diffusive_cycle2', sum([p.data.nelement() for p in disc_non_diffusive_cycle2.parameters()]))
+
     broadcast_params(gen_diffusive_1.parameters())
     broadcast_params(gen_diffusive_2.parameters())
     broadcast_params(gen_non_diffusive_1to2.parameters())
@@ -691,8 +700,9 @@ def train_syndiff(rank, gpu, args):
                     optimizer_gen_non_diffusive_2to1.swap_parameters_with_ema(store_params_in_ema=True)
 
 
-        for iteration, (x_val , y_val) in enumerate(data_loader_val): 
-        
+        for iteration, data_val in enumerate(data_loader_val): 
+            x_val=data_val["label"]
+            y_val=data_val["image"]
             real_data = x_val.to(device, non_blocking=True)
             source_data = y_val.to(device, non_blocking=True)
             
@@ -707,9 +717,9 @@ def train_syndiff(rank, gpu, args):
             val_l1_loss[0,epoch,iteration]=abs(fake_sample1 -real_data).mean()
             
             val_psnr_values[0,epoch, iteration] = psnr(real_data,fake_sample1, data_range=real_data.max())
-
-        for iteration, (y_val , x_val) in enumerate(data_loader_val): 
-        
+        '''
+        for iteration, data_val in enumerate(data_loader_val): 
+            x_val=data_val["label"]
             real_data = x_val.to(device, non_blocking=True)
             source_data = y_val.to(device, non_blocking=True)
             
@@ -726,7 +736,7 @@ def train_syndiff(rank, gpu, args):
             val_l1_loss[1,epoch,iteration]=abs(fake_sample1 -real_data).mean()
             
             val_psnr_values[1,epoch, iteration] = psnr(real_data,fake_sample1, data_range=real_data.max())
-
+        '''
         print(np.nanmean(val_psnr_values[0,epoch,:]))
         print(np.nanmean(val_psnr_values[1,epoch,:]))
         np.save('{}/val_l1_loss.npy'.format(exp_path), val_l1_loss)
@@ -863,27 +873,30 @@ if __name__ == '__main__':
 
     args.image_size=256 
     args.exp='exp_syndiff' 
-    args.num_channels=2 
-    args.num_channels_dae=64 
-    args.ch_mult=(1,1, 2, 2, 4,4)
+    args.num_channels=2
+    args.num_channels_dae=8  # attention block channel
+    args.ngf=8 
+    args.ch_mult=(1, 1, 2, 2, 4, 4)
     args.num_timesteps=4 
     args.num_res_blocks=2 
     args.batch_size=1 
     args.contrast1='T1' 
     args.contrast2='T2' 
     args.num_epoch=500 
-    args.ngf=64 
     args.embedding_type='positional'  
     args.ema_decay=0.999 
     args.r1_gamma=1. 
-    args.z_emb_dim=256 
+
+    args.attn_resolutions = (2, )
+    args.z_emb_dim=32 
+    args.t_emb_dim=32
     args.lr_d=1e-4 
     args.lr_g=1.6e-4 
     args.lazy_reg=10 
     args.num_process_per_node=1 
     args.local_rank=0 
-    args.input_path=r'C:\Users\56991\Projects\Datasets\Task1\pelvis'
-    args.output_path=r'C:\Users\56991\Projects\SynDiff\output'
+    args.input_path= r'D:\Projects\data\Task1\pelvis' #r'C:\Users\56991\Projects\Datasets\Task1\pelvis' 
+    args.output_path=r'D:\Projects\SynDiff\output' #r'C:\Users\56991\Projects\SynDiff\output'
 
 
 

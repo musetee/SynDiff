@@ -135,7 +135,8 @@ def define_G(input_nc=1, output_nc=1, ngf=64, netG='resnet_9blocks', norm='insta
         The original U-Net paper: https://arxiv.org/abs/1505.04597
         Resnet-based generator: [resnet_6blocks] (with 6 Resnet blocks) and [resnet_9blocks] (with 9 Resnet blocks)
         Resnet-based generator consists of several Resnet blocks between a few downsampling/upsampling operations.
-        We adapt Torch code from Justin Johnson's neural style transfer project (https://github.com/jcjohnson/fast-neural-style).
+        We adapt Torch code from Justin Johnson's neural style transfer project (https://github.com/jc
+        johnson/fast-neural-style).
     The generator has been initialized by <init_net>. It uses RELU for non-linearity.
     """
     net = None
@@ -145,6 +146,17 @@ def define_G(input_nc=1, output_nc=1, ngf=64, netG='resnet_9blocks', norm='insta
         net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9)
     elif netG == 'resnet_6blocks':
         net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6)
+    elif netG == 'unet_128':
+        import monai
+        net =   monai.networks.nets.UNet(
+            spatial_dims=2,
+            in_channels=1,
+            out_channels=1,
+            channels=(8, 16, 32, 64, 128),
+            strides=(2,2,2,2), # the dimensions of the input image are divided by 2^4=16
+            num_res_units=2,
+            act='SIGMOID',
+        )
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     return init_net(net, init_type, init_gain, gpu_ids)
